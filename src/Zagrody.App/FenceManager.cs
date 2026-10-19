@@ -24,6 +24,7 @@ internal sealed class FenceManager : IDisposable
     private readonly AutoSortService _autoSort;
     private readonly MessageWindow _messages;
     private readonly DesktopDoubleClickWatcher _doubleClick;
+    private readonly ShowDesktopWatcher _showDesktop;
     private SearchWindow? _search;
     private SettingsWindow? _settingsWindow;
     private bool _fencesVisible = true;
@@ -52,6 +53,8 @@ internal sealed class FenceManager : IDisposable
         _messages.ExplorerRestarted += (_, _) => OnExplorerRestarted();
         _doubleClick = new DesktopDoubleClickWatcher(dispatcher);
         _doubleClick.DoubleClicked += (_, _) => ToggleVisibility();
+        _showDesktop = new ShowDesktopWatcher();
+        _showDesktop.DesktopShownChanged += (_, shown) => DesktopPinning.SetRaised(_fences.Select(f => (Window)f.Window), shown);
     }
 
     /// <summary>Short user-facing messages (shown as tray balloons).</summary>
@@ -215,12 +218,11 @@ internal sealed class FenceManager : IDisposable
         {
             if (visible)
             {
-                window.Show();
-                DesktopPinning.Repin(window);
+                DesktopPinning.Show(window);
             }
             else
             {
-                window.Hide();
+                DesktopPinning.Hide(window);
             }
         }
     }
@@ -536,6 +538,7 @@ internal sealed class FenceManager : IDisposable
         _missingCheck.Stop();
         _autoSort.Dispose();
         _doubleClick.Dispose();
+        _showDesktop.Dispose();
         _messages.Dispose();
         if (_iconsHiddenByToggle)
         {

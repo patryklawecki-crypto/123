@@ -75,6 +75,7 @@ public partial class FenceWindow : Window
     public void CloseForGood()
     {
         _allowClose = true;
+        DesktopPinning.Release(this);
         Close();
     }
 
