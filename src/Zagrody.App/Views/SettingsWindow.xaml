@@ -1,0 +1,234 @@
+<Window x:Class="Zagrody.App.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Zagrody.App.ViewModels"
+        Title="Zagrody — ustawienia"
+        Width="920"
+        Height="640"
+        MinWidth="720"
+        MinHeight="480"
+        WindowStartupLocation="CenterScreen"
+        FontFamily="Segoe UI"
+        FontSize="13">
+
+    <Window.Resources>
+        <Style TargetType="CheckBox">
+            <Setter Property="Margin" Value="0,6" />
+        </Style>
+        <Style x:Key="Hint" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#666" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="22,0,0,6" />
+        </Style>
+        <Style x:Key="Header" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,14,0,4" />
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="12,4" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="MinWidth" Value="80" />
+        </Style>
+    </Window.Resources>
+
+    <DockPanel Margin="14">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Zapisz" IsDefault="True" Click="Save_Click" />
+            <Button Content="Anuluj" IsCancel="True" Margin="0" Click="Cancel_Click" />
+        </StackPanel>
+
+        <TabControl>
+            <TabItem Header="Ogólne">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="14,4,14,14" MaxWidth="640" HorizontalAlignment="Left">
+                        <TextBlock Style="{StaticResource Header}" Text="Start" />
+                        <CheckBox Content="Uruchamiaj razem z Windows" IsChecked="{Binding StartWithWindows}" />
+
+                        <TextBlock Style="{StaticResource Header}" Text="Wygląd i zachowanie" />
+                        <CheckBox Content="Rozmycie tła pod zagrodami (efekt szkła)" IsChecked="{Binding UseBlurEffect}" />
+                        <StackPanel Orientation="Horizontal">
+                            <CheckBox Content="Przyciągaj do siatki co" IsChecked="{Binding SnapToGrid}" VerticalAlignment="Center" />
+                            <TextBox Width="50" Margin="6,0" VerticalAlignment="Center" Text="{Binding GridSize, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBlock Text="px" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <CheckBox Content="Podglądaj zwinięte zagrody po najechaniu myszą" IsChecked="{Binding PeekRolledUpOnHover}" />
+                        <CheckBox Content="Dwuklik na pustym pulpicie chowa zagrody i ikony pulpitu" IsChecked="{Binding DoubleClickDesktopToHide}" />
+                        <TextBlock Style="{StaticResource Hint}" Text="Kolejny dwuklik pokazuje je z powrotem." />
+
+                        <TextBlock Style="{StaticResource Header}" Text="Skróty klawiszowe" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="200" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition />
+                                <RowDefinition />
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="Pokaż / ukryj zagrody:" VerticalAlignment="Center" Margin="0,4,12,4" />
+                            <TextBox Grid.Column="1" Margin="0,4" Text="{Binding ToggleHotkey, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBlock Grid.Row="1" Text="Wyszukiwarka:" VerticalAlignment="Center" Margin="0,4,12,4" />
+                            <TextBox Grid.Row="1" Grid.Column="1" Margin="0,4" Text="{Binding SearchHotkey, UpdateSourceTrigger=PropertyChanged}" />
+                        </Grid>
+                        <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
+                                   Text="Format: modyfikatory i klawisz połączone znakiem +, np. Ctrl+Alt+H, Win+Shift+F, Ctrl+Alt+Space." />
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Automatyczne sortowanie">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="140" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <CheckBox Content="Sortuj nowe elementy automatycznie po" IsChecked="{Binding AutoSortEnabled}" VerticalAlignment="Center" />
+                            <TextBox Width="50" Margin="6,0" VerticalAlignment="Center" Text="{Binding AutoSortDelaySeconds, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBlock Text="s bez zmian" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Hint}"
+                                   Text="Pobierane i otwarte pliki są pomijane do czasu, aż się ustabilizują. Reguły do zagród-folderów przenoszą pliki (można to cofnąć z menu w zasobniku), reguły do zwykłych zagród tylko je przypinają." />
+                    </StackPanel>
+
+                    <Grid Grid.Row="1" Margin="0,4,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Obserwowane foldery:" VerticalAlignment="Top" Margin="0,4,10,0" />
+                        <StackPanel Grid.Column="1">
+                            <ListBox ItemsSource="{Binding WatchedFolders}" SelectedItem="{Binding SelectedFolder}" Height="60" />
+                            <TextBlock Text="{Binding WatchedFoldersHint}" Foreground="#666" FontSize="12" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Margin="6,0,0,0">
+                            <Button Content="Dodaj…" Click="AddFolder_Click" Margin="0,0,0,4" />
+                            <Button Content="Usuń" Click="RemoveFolder_Click" Margin="0" />
+                        </StackPanel>
+                    </Grid>
+
+                    <DockPanel Grid.Row="2" Margin="0,0,0,6" LastChildFill="False">
+                        <TextBlock Text="Reguły (sprawdzane od góry, wygrywa pierwsza pasująca):" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <ComboBox x:Name="PresetBox" Width="190" Margin="0,0,6,0" DisplayMemberPath="Name"
+                                      ItemsSource="{x:Static vm:SettingsViewModel.Presets}" SelectionChanged="Preset_SelectionChanged"
+                                      IsEnabled="{Binding HasFences}" ToolTip="Gotowe reguły" />
+                            <Button Content="Nowa reguła" Click="AddRule_Click" IsEnabled="{Binding HasFences}" />
+                            <Button Content="▲" MinWidth="30" Click="MoveUp_Click" ToolTip="W górę" />
+                            <Button Content="▼" MinWidth="30" Click="MoveDown_Click" ToolTip="W dół" />
+                            <Button Content="Usuń" Click="RemoveRule_Click" Margin="0" />
+                        </StackPanel>
+                    </DockPanel>
+
+                    <DataGrid x:Name="RulesGrid"
+                              Grid.Row="3"
+                              ItemsSource="{Binding Rules}"
+                              SelectedItem="{Binding SelectedRule}"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              CanUserSortColumns="False"
+                              SelectionMode="Single"
+                              HeadersVisibility="Column"
+                              RowHeight="30"
+                              GridLinesVisibility="Horizontal"
+                              HorizontalGridLinesBrush="#EEE">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="Wł." Width="40">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox IsChecked="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" Margin="0" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="Nazwa" Width="1.2*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" BorderThickness="0" VerticalContentAlignment="Center" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="Do zagrody" Width="1.3*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <ComboBox ItemsSource="{Binding DataContext.Fences, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                  DisplayMemberPath="Title" SelectedValuePath="Id"
+                                                  SelectedValue="{Binding TargetFenceId, UpdateSourceTrigger=PropertyChanged}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="Rozszerzenia" Width="1.6*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBox Text="{Binding ExtensionsText, UpdateSourceTrigger=PropertyChanged}" BorderThickness="0" VerticalContentAlignment="Center"
+                                                 ToolTip="Np. jpg, png, gif" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="Wzorzec nazwy" Width="1.1*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBox Text="{Binding NamePattern, UpdateSourceTrigger=PropertyChanged}" BorderThickness="0" VerticalContentAlignment="Center"
+                                                 ToolTip="* = dowolne znaki, ? = jeden znak, kilka wzorców rozdziel średnikiem. Np. faktura*;*rachunek*" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="Starsze niż (dni)" Width="0.8*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBox Text="{Binding OlderThanDays, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}" BorderThickness="0" VerticalContentAlignment="Center" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="Min. MB" Width="0.6*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBox Text="{Binding MinSizeMb, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}" BorderThickness="0" VerticalContentAlignment="Center" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="Dotyczy" Width="0.9*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <ComboBox ItemsSource="{x:Static vm:SettingsViewModel.Kinds}" DisplayMemberPath="Label" SelectedValuePath="Value"
+                                                  SelectedValue="{Binding AppliesTo, UpdateSourceTrigger=PropertyChanged}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <DockPanel Grid.Row="4" Margin="0,8,0,4">
+                        <Button DockPanel.Dock="Right" Content="Podgląd" Click="Preview_Click" Margin="0" />
+                        <TextBlock Text="Podgląd (bez przenoszenia):" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <TextBox Grid.Row="5" Text="{Binding PreviewText, Mode=OneWay}" IsReadOnly="True" TextWrapping="NoWrap"
+                             FontFamily="Consolas" FontSize="12" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" />
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="O programie">
+                <StackPanel Margin="16">
+                    <TextBlock Text="Zagrody" FontSize="22" FontWeight="SemiBold" />
+                    <TextBlock x:Name="VersionText" Foreground="#666" Margin="0,2,0,12" />
+                    <TextBlock TextWrapping="Wrap" MaxWidth="600" HorizontalAlignment="Left">
+                        Porządkowanie pulpitu: zagrody z przypiętymi plikami lub z zawartością folderów, zwijanie,
+                        wyszukiwarka, automatyczne sortowanie z podglądem i cofaniem.
+                    </TextBlock>
+                    <TextBlock Style="{StaticResource Header}" Text="Pliki" />
+                    <TextBlock x:Name="PathsText" TextWrapping="Wrap" FontFamily="Consolas" FontSize="12" />
+                    <Button Content="Otwórz folder z ustawieniami" HorizontalAlignment="Left" Margin="0,10,0,0" Click="OpenDataFolder_Click" />
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

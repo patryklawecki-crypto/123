@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>Zagrody.App</RootNamespace>
+    <AssemblyName>Zagrody</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Product>Zagrody</Product>
+    <Version>1.0.0</Version>
+    <SatelliteResourceLanguages>pl</SatelliteResourceLanguages>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- WPF and WinForms both define Application, MessageBox, Color...; WinForms is only used for the tray icon. -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Zagrody.Core\Zagrody.Core.csproj" />
+  </ItemGroup>
+</Project>
