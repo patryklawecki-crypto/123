@@ -12,6 +12,12 @@ public sealed class AppSettings
     public bool SnapToGrid { get; set; } = true;
     public int GridSize { get; set; } = 10;
 
+    /// <summary>Fences stick to each other and to screen edges while being moved or resized.</summary>
+    public bool SnapToFences { get; set; } = true;
+
+    /// <summary>Space kept between snapped fences, in pixels at 100% scaling.</summary>
+    public int FenceGap { get; set; } = 8;
+
     /// <summary>Double-clicking empty desktop hides fences and desktop icons, like Stardock Fences.</summary>
     public bool DoubleClickDesktopToHide { get; set; } = true;
 
@@ -32,6 +38,7 @@ public sealed class AppSettings
     internal void Normalize()
     {
         GridSize = Math.Clamp(GridSize, 2, 100);
+        FenceGap = Math.Clamp(FenceGap, 0, 64);
         AutoSortDelaySeconds = Math.Clamp(AutoSortDelaySeconds, 1, 3600);
         WatchedFolders = (WatchedFolders ?? new())
             .Where(p => !string.IsNullOrWhiteSpace(p))

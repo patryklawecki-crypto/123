@@ -92,6 +92,8 @@ public sealed class SettingsViewModel : ObservableObject
         UseBlurEffect = s.UseBlurEffect;
         SnapToGrid = s.SnapToGrid;
         GridSize = s.GridSize;
+        SnapToFences = s.SnapToFences;
+        FenceGap = s.FenceGap;
         DoubleClickDesktopToHide = s.DoubleClickDesktopToHide;
         PeekRolledUpOnHover = s.PeekRolledUpOnHover;
         ToggleHotkey = s.ToggleHotkey;
@@ -107,6 +109,8 @@ public sealed class SettingsViewModel : ObservableObject
     public bool UseBlurEffect { get; set; }
     public bool SnapToGrid { get; set; }
     public int GridSize { get; set; }
+    public bool SnapToFences { get; set; }
+    public int FenceGap { get; set; }
     public bool DoubleClickDesktopToHide { get; set; }
     public bool PeekRolledUpOnHover { get; set; }
     public string ToggleHotkey { get; set; }
@@ -227,6 +231,8 @@ public sealed class SettingsViewModel : ObservableObject
         UseBlurEffect = UseBlurEffect,
         SnapToGrid = SnapToGrid,
         GridSize = Math.Clamp(GridSize, 2, 100),
+        SnapToFences = SnapToFences,
+        FenceGap = Math.Clamp(FenceGap, 0, 64),
         DoubleClickDesktopToHide = DoubleClickDesktopToHide,
         PeekRolledUpOnHover = PeekRolledUpOnHover,
         ToggleHotkey = ToggleHotkey.Trim(),

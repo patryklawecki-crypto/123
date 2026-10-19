@@ -20,6 +20,8 @@ internal static class NativeMethods
     public const int WM_COMMAND = 0x0111;
     public const int WM_LBUTTONDOWN = 0x0201;
     public const int WM_SIZE = 0x0005;
+    public const int WM_MOVING = 0x0216;
+    public const int WM_SIZING = 0x0214;
     public const int WM_SYSCOMMAND = 0x0112;
     public const int SC_MINIMIZE = 0xF020;
     public const int SIZE_MINIMIZED = 1;
@@ -104,6 +106,9 @@ internal static class NativeMethods
 
     [DllImport("user32.dll")]
     public static extern IntPtr GetWindow(IntPtr hwnd, uint command);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
 
     [DllImport("user32.dll")]
     public static extern IntPtr GetAncestor(IntPtr hwnd, uint flags);

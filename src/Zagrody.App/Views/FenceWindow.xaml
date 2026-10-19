@@ -67,14 +67,10 @@
                          LostKeyboardFocus="RenameBox_LostKeyboardFocus" />
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="4,0,6,0">
-                    <TextBlock Text="&#xE72E;"
-                               FontFamily="{StaticResource IconFont}"
-                               FontSize="10"
-                               Foreground="#99FFFFFF"
-                               VerticalAlignment="Center"
-                               Margin="0,0,4,0"
-                               ToolTip="Zagroda jest zablokowana"
-                               Visibility="{Binding IsLocked, Converter={StaticResource BoolToVisibility}}" />
+                    <!-- Always visible while locked, so the state is obvious; click to unlock. -->
+                    <Button Style="{StaticResource GlyphButton}" Content="&#xE72E;" Foreground="#CCFFFFFF"
+                            ToolTip="Zablokowana — kliknij, aby odblokować" Click="LockButton_Click"
+                            Visibility="{Binding IsLocked, Converter={StaticResource BoolToVisibility}}" />
                     <StackPanel x:Name="TitleButtons" Orientation="Horizontal">
                         <StackPanel.Style>
                             <Style TargetType="StackPanel">
@@ -87,11 +83,21 @@
                             </Style>
                         </StackPanel.Style>
                         <Button Style="{StaticResource GlyphButton}" Content="&#xE721;" ToolTip="Szukaj (Ctrl+F)" Click="SearchButton_Click" />
+                        <Button Style="{StaticResource GlyphButton}" Content="&#xE785;" ToolTip="Zablokuj położenie, rozmiar i ustawienia" Click="LockButton_Click"
+                                Visibility="{Binding IsLocked, Converter={StaticResource InverseBoolToVisibility}}" />
                         <Button x:Name="RollButton" Style="{StaticResource GlyphButton}" Content="&#xE70E;" ToolTip="Zwiń / rozwiń" Click="RollButton_Click" />
                         <Button Style="{StaticResource GlyphButton}" Content="&#xE712;" ToolTip="Menu" Click="MenuButton_Click" />
                     </StackPanel>
                 </StackPanel>
             </Grid>
+
+            <!-- Hairline between the title and the content. -->
+            <Border x:Name="TitleSeparator"
+                    Height="1"
+                    Margin="10,0"
+                    VerticalAlignment="Bottom"
+                    Background="#2EFFFFFF"
+                    IsHitTestVisible="False" />
 
             <TextBox x:Name="SearchBox"
                      Grid.Row="1"

@@ -75,6 +75,47 @@ internal static class DesktopPinning
     /// <summary>Called before closing, so the hide that is part of destroying a window goes through.</summary>
     public static void Release(Window window) => IntentionallyHidden.Add(new WindowInteropHelper(window).Handle);
 
+    public static bool IsRaised => _raised;
+
+    /// <summary>Brings back windows that the shell minimized or hid although they should be showing.</summary>
+    public static void RestoreIfLost(IEnumerable<Window> windows)
+    {
+        foreach (var window in windows)
+        {
+            var hwnd = new WindowInteropHelper(window).Handle;
+            if (hwnd == IntPtr.Zero || !window.IsVisible || IntentionallyHidden.Contains(hwnd))
+            {
+                continue;
+            }
+            if (IsIconic(hwnd) || !IsWindowVisible(hwnd))
+            {
+                ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+                SetWindowPos(hwnd, _raised ? HWND_TOP : HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            }
+        }
+    }
+
+    /// <summary>True when any visible window lies under <paramref name="cover"/> in the z-order.</summary>
+    public static bool AnyBelow(IEnumerable<Window> windows, IntPtr cover)
+    {
+        foreach (var window in windows)
+        {
+            var hwnd = new WindowInteropHelper(window).Handle;
+            if (hwnd == IntPtr.Zero || !window.IsVisible)
+            {
+                continue;
+            }
+            for (var w = GetWindow(hwnd, GW_HWNDPREV); w != IntPtr.Zero; w = GetWindow(w, GW_HWNDPREV))
+            {
+                if (w == cover)
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     /// <summary>
     /// Lifts fences above everything while the desktop is in front ("Show desktop"), and puts them back
     /// to the bottom once the user switches to an application again.

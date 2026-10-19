@@ -42,6 +42,9 @@ public sealed class FenceViewModel : ObservableObject, IDisposable
     /// <summary>Raised whenever something that has to be saved changed.</summary>
     public event EventHandler? Changed;
 
+    /// <summary>Pinned references the user removed; the rules shouldn't pin them right back.</summary>
+    public event EventHandler<IReadOnlyList<string>>? PathsRemoved;
+
     public FenceConfig Config { get; }
     public Guid Id => Config.Id;
     public ObservableCollection<ItemViewModel> Items { get; } = new();
@@ -312,6 +315,7 @@ public sealed class FenceViewModel : ObservableObject, IDisposable
         {
             Reload();
             RaiseChanged();
+            PathsRemoved?.Invoke(this, set.ToList());
         }
     }
 

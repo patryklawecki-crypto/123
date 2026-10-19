@@ -2,41 +2,49 @@ using static Zagrody.App.Interop.NativeMethods;
 
 namespace Zagrody.App.Interop;
 
+/// <param name="Shown">The desktop is in front and no application window covers it.</param>
+/// <param name="Desktop">The desktop's top-level window while <paramref name="Shown"/>.</param>
+internal readonly record struct DesktopState(bool Shown, IntPtr Desktop);
+
 /// <summary>
-/// Notices "Show desktop" (Win+D, the corner of the taskbar) through foreground-change events: the
-/// desktop becomes the foreground window and no application window is left in front of it. A plain
-/// click on the wallpaper doesn't count, because the application windows stay above the desktop then.
+/// Tells whether "Show desktop" (Win+D, the corner of the taskbar) is active: the desktop is the
+/// foreground window and no application window is left in front of it. A plain click on the
+/// wallpaper doesn't count, because the application windows stay above the desktop then.
+/// Foreground changes are reported as they happen; callers also poll <see cref="Evaluate"/>, since
+/// rapid Win+D presses can coalesce events and windows are still animating when they arrive.
 /// </summary>
 internal sealed class ShowDesktopWatcher : IDisposable
 {
     private readonly WinEventDelegate _proc;
     private readonly uint _ownProcessId = (uint)Environment.ProcessId;
     private IntPtr _hook;
-    private bool _desktopShown;
 
     public ShowDesktopWatcher()
     {
-        _proc = OnForegroundChanged; // must stay referenced for as long as the hook is installed
+        _proc = (_, _, _, _, _, _, _) => ForegroundChanged?.Invoke(this, EventArgs.Empty); // kept referenced while hooked
         _hook = SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, IntPtr.Zero, _proc, 0, 0,
             WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
     }
 
-    /// <summary>True while the desktop is in front; false once an application is back.</summary>
-    public event EventHandler<bool>? DesktopShownChanged;
+    public event EventHandler? ForegroundChanged;
 
-    private void OnForegroundChanged(IntPtr hook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint thread, uint time)
+    /// <returns>The current state, or null while one of our own windows is in front (keep whatever was set).</returns>
+    public DesktopState? Evaluate()
     {
-        if (hwnd == IntPtr.Zero)
+        var foreground = GetForegroundWindow();
+        if (foreground == IntPtr.Zero)
         {
-            return;
+            return null;
         }
-        var root = GetAncestor(hwnd, GA_ROOT);
-        var shown = IsDesktopWindow(root) && !AnyApplicationWindowAbove(root);
-        if (shown != _desktopShown)
+        GetWindowThreadProcessId(foreground, out var pid);
+        if (pid == _ownProcessId)
         {
-            _desktopShown = shown;
-            DesktopShownChanged?.Invoke(this, shown);
+            return null;
         }
+        var root = GetAncestor(foreground, GA_ROOT);
+        return IsDesktopWindow(root) && !AnyApplicationWindowAbove(root)
+            ? new DesktopState(true, root)
+            : new DesktopState(false, IntPtr.Zero);
     }
 
     private static bool IsDesktopWindow(IntPtr hwnd) =>

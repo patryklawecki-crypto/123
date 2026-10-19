@@ -51,9 +51,11 @@ internal sealed class AutoSortService : IDisposable
                 IncludeSubdirectories = false,
                 NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite | NotifyFilters.Size,
             };
+            // Only new arrivals are sorted. Writes to a pending item just extend its quiet period, so a file
+            // someone is editing on the desktop is never moved from under them.
             watcher.Created += (_, e) => Enqueue(e.FullPath);
-            watcher.Changed += (_, e) => Enqueue(e.FullPath);
             watcher.Renamed += (_, e) => Enqueue(e.FullPath); // browsers rename "x.crdownload" to "x" when done
+            watcher.Changed += (_, e) => Touch(e.FullPath);
             watcher.EnableRaisingEvents = true;
             _watchers.Add(watcher);
         }
@@ -69,6 +71,17 @@ internal sealed class AutoSortService : IDisposable
                 _pending[path] = entry = new Pending();
             }
             entry.LastSeenUtc = DateTime.UtcNow;
+        }
+    }
+
+    private void Touch(string path)
+    {
+        lock (_pending)
+        {
+            if (_pending.TryGetValue(path, out var entry))
+            {
+                entry.LastSeenUtc = DateTime.UtcNow;
+            }
         }
     }
 

@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -103,6 +104,10 @@ public partial class FenceWindow : Window
 
     public void BeginRename()
     {
+        if (_vm.IsLocked)
+        {
+            return;
+        }
         _vm.IsRenaming = true;
         RenameBox.Text = _vm.Title;
         Dispatcher.BeginInvoke(DispatcherPriority.Input, () =>
@@ -150,9 +155,21 @@ public partial class FenceWindow : Window
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        if (msg == NativeMethods.WM_EXITSIZEMOVE)
+        if (msg is NativeMethods.WM_MOVING or NativeMethods.WM_SIZING)
         {
-            SnapToGrid();
+            // The proposed rectangle (screen pixels) is adjusted in place while the user drags.
+            var rect = Marshal.PtrToStructure<NativeMethods.RECT>(lParam);
+            var proposed = new Bounds(rect.Left, rect.Top, rect.Right - rect.Left, rect.Bottom - rect.Top);
+            var snapped = msg == NativeMethods.WM_MOVING
+                ? SnapMove(proposed)
+                : SnapResize(proposed, ToEdges(wParam.ToInt32()));
+            rect.Left = (int)Math.Round(snapped.X);
+            rect.Top = (int)Math.Round(snapped.Y);
+            rect.Right = (int)Math.Round(snapped.Right);
+            rect.Bottom = (int)Math.Round(snapped.Bottom);
+            Marshal.StructureToPtr(rect, lParam, false);
+            handled = true;
+            return new IntPtr(1);
         }
         return IntPtr.Zero;
     }
@@ -187,6 +204,7 @@ public partial class FenceWindow : Window
         var collapsed = IsCollapsed;
         _applyingBounds = true;
         ContentArea.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
+        TitleSeparator.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
         SearchBox.Visibility = !collapsed && _vm.IsSearchVisible ? Visibility.Visible : Visibility.Collapsed;
         MinHeight = collapsed ? TitleHeight : FenceConfig.MinHeight;
         MaxHeight = collapsed ? TitleHeight : double.PositiveInfinity;
@@ -222,22 +240,43 @@ public partial class FenceWindow : Window
         _vm.RaiseChanged();
     }
 
-    private void SnapToGrid()
+    // ---- Magnetic snapping (all in screen pixels) -----------------------------------------------
+
+    private const double SnapThreshold = 12;
+
+    private double Scale => VisualTreeHelper.GetDpi(this).DpiScaleX;
+
+    private SnapOptions SnapOptions()
     {
-        var settings = _manager.Config.Settings;
-        if (!settings.SnapToGrid)
-        {
-            return;
-        }
-        var grid = settings.GridSize;
-        Left = LayoutMath.Snap(Left, grid);
-        Top = LayoutMath.Snap(Top, grid);
-        Width = Math.Max(MinWidth, LayoutMath.Snap(ActualWidth, grid));
-        if (!IsCollapsed)
-        {
-            Height = Math.Max(MinHeight, LayoutMath.Snap(ActualHeight, grid));
-        }
+        var s = _manager.Config.Settings;
+        var scale = Scale;
+        return new SnapOptions(
+            Gap: s.FenceGap * scale,
+            Threshold: SnapThreshold * scale,
+            Grid: s.SnapToGrid ? s.GridSize * scale : 0,
+            SnapToNeighbours: s.SnapToFences);
     }
+
+    private Bounds SnapMove(Bounds proposed) =>
+        LayoutMath.SnapMove(proposed, _manager.OtherFenceRects(this), FenceManager.WorkAreasInPixels(), SnapOptions());
+
+    private Bounds SnapResize(Bounds proposed, ResizeEdges edges) =>
+        LayoutMath.SnapResize(proposed, edges, _manager.OtherFenceRects(this), FenceManager.WorkAreasInPixels(), SnapOptions(),
+            MinWidth * Scale, MinHeight * Scale);
+
+    /// <summary>Maps WM_SIZING's WMSZ_* codes to the edges being dragged.</summary>
+    private static ResizeEdges ToEdges(int wmsz) => wmsz switch
+    {
+        1 => ResizeEdges.Left,
+        2 => ResizeEdges.Right,
+        3 => ResizeEdges.Top,
+        4 => ResizeEdges.Top | ResizeEdges.Left,
+        5 => ResizeEdges.Top | ResizeEdges.Right,
+        6 => ResizeEdges.Bottom,
+        7 => ResizeEdges.Bottom | ResizeEdges.Left,
+        8 => ResizeEdges.Bottom | ResizeEdges.Right,
+        _ => ResizeEdges.None,
+    };
 
     // ---- Roll-up peeking -----------------------------------------------------------------------
 
@@ -304,6 +343,8 @@ public partial class FenceWindow : Window
     }
 
     private void SearchButton_Click(object sender, RoutedEventArgs e) => ToggleSearch();
+
+    private void LockButton_Click(object sender, RoutedEventArgs e) => _vm.IsLocked = !_vm.IsLocked;
 
     private void RollButton_Click(object sender, RoutedEventArgs e) => _vm.IsRolledUp = !_vm.IsRolledUp;
 
@@ -555,7 +596,8 @@ public partial class FenceWindow : Window
         DragDropEffects wanted;
         if (sourceId == _vm.Id)
         {
-            wanted = _vm.IsFolder ? DragDropEffects.None : DragDropEffects.Move; // reorder
+            // Reordering changes the fence's arrangement, which a lock freezes.
+            wanted = _vm.IsFolder || _vm.IsLocked ? DragDropEffects.None : DragDropEffects.Move;
         }
         else if (_vm.IsFolder)
         {
@@ -748,10 +790,15 @@ public partial class FenceWindow : Window
 
     private ContextMenu BuildFenceMenu()
     {
+        // A locked fence keeps its place, size and settings; only viewing actions stay available.
+        var editable = !_vm.IsLocked;
         var menu = new ContextMenu();
-        menu.Items.Add(MenuItem("Zmień nazwę", BeginRename, gesture: "F2"));
+        menu.Items.Add(MenuItem(_vm.IsLocked ? "Odblokuj zagrodę" : "Zablokuj zagrodę (położenie, rozmiar i ustawienia)",
+            () => _vm.IsLocked = !_vm.IsLocked, isChecked: _vm.IsLocked));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(MenuItem("Zmień nazwę", BeginRename, enabled: editable, gesture: "F2"));
 
-        var colors = new MenuItem { Header = "Kolor" };
+        var colors = new MenuItem { Header = "Kolor", IsEnabled = editable };
         foreach (var (hex, name) in FenceViewModel.Palette.Zip(PaletteNames))
         {
             var swatch = new Border
@@ -772,14 +819,14 @@ public partial class FenceWindow : Window
         }
         menu.Items.Add(colors);
 
-        var icons = new MenuItem { Header = "Rozmiar ikon" };
+        var icons = new MenuItem { Header = "Rozmiar ikon", IsEnabled = editable };
         foreach (var (label, size) in new[] { ("Małe", 32), ("Średnie", 48), ("Duże", 64), ("Bardzo duże", 96) })
         {
             icons.Items.Add(MenuItem(label, () => _vm.IconSize = size, isChecked: _vm.IconSize == size));
         }
         menu.Items.Add(icons);
 
-        var sort = new MenuItem { Header = "Sortuj" };
+        var sort = new MenuItem { Header = "Sortuj", IsEnabled = editable };
         var modes = new List<(string, ItemSortMode)>
         {
             ("Według nazwy", ItemSortMode.Name),
@@ -801,24 +848,23 @@ public partial class FenceWindow : Window
 
         menu.Items.Add(new Separator());
         menu.Items.Add(MenuItem(_vm.IsRolledUp ? "Rozwiń" : "Zwiń", () => _vm.IsRolledUp = !_vm.IsRolledUp));
-        menu.Items.Add(MenuItem("Zablokuj położenie i rozmiar", () => _vm.IsLocked = !_vm.IsLocked, isChecked: _vm.IsLocked));
 
         if (_vm.IsFolder)
         {
             menu.Items.Add(new Separator());
             menu.Items.Add(MenuItem("Otwórz folder", () => ShellOps.Open(_vm.FolderPath!), enabled: _vm.FolderExists));
-            menu.Items.Add(MenuItem("Zmień folder…", ChooseFolder));
-            menu.Items.Add(MenuItem("Pokazuj ukryte pliki", () => _vm.ShowHiddenFiles = !_vm.ShowHiddenFiles, isChecked: _vm.ShowHiddenFiles));
+            menu.Items.Add(MenuItem("Zmień folder…", ChooseFolder, enabled: editable));
+            menu.Items.Add(MenuItem("Pokazuj ukryte pliki", () => _vm.ShowHiddenFiles = !_vm.ShowHiddenFiles, isChecked: _vm.ShowHiddenFiles, enabled: editable));
         }
         else
         {
             menu.Items.Add(new Separator());
-            menu.Items.Add(MenuItem("Pokazuj zawartość folderu…", ChooseFolder));
+            menu.Items.Add(MenuItem("Pokazuj zawartość folderu…", ChooseFolder, enabled: editable));
         }
 
         menu.Items.Add(new Separator());
         menu.Items.Add(MenuItem("Nowa zagroda", () => _manager.CreateFence(FenceMode.Collection, null)));
-        menu.Items.Add(MenuItem("Usuń tę zagrodę…", () => _manager.DeleteFence(_vm)));
+        menu.Items.Add(MenuItem("Usuń tę zagrodę…", () => _manager.DeleteFence(_vm), enabled: editable));
         return menu;
     }
 

@@ -25,6 +25,11 @@ internal sealed class FenceManager : IDisposable
     private readonly MessageWindow _messages;
     private readonly DesktopDoubleClickWatcher _doubleClick;
     private readonly ShowDesktopWatcher _showDesktop;
+    private readonly DispatcherTimer _desktopGuard;
+
+    // Items the user deliberately took back from the rules (undo, removed from a fence): automatic
+    // sorting leaves them alone for the rest of the session instead of grabbing them again.
+    private readonly HashSet<string> _sortExclusions = new(StringComparer.OrdinalIgnoreCase);
     private SearchWindow? _search;
     private SettingsWindow? _settingsWindow;
     private bool _fencesVisible = true;
@@ -54,7 +59,9 @@ internal sealed class FenceManager : IDisposable
         _doubleClick = new DesktopDoubleClickWatcher(dispatcher);
         _doubleClick.DoubleClicked += (_, _) => ToggleVisibility();
         _showDesktop = new ShowDesktopWatcher();
-        _showDesktop.DesktopShownChanged += (_, shown) => DesktopPinning.SetRaised(_fences.Select(f => (Window)f.Window), shown);
+        _showDesktop.ForegroundChanged += (_, _) => UpdateDesktopLayer();
+        _desktopGuard = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+        _desktopGuard.Tick += (_, _) => UpdateDesktopLayer();
     }
 
     /// <summary>Short user-facing messages (shown as tray balloons).</summary>
@@ -90,6 +97,7 @@ internal sealed class FenceManager : IDisposable
         }
         ApplySettings(Config.Settings, rules: null);
         _missingCheck.Start();
+        _desktopGuard.Start();
     }
 
     public FenceViewModel? Find(Guid id) => _fences.FirstOrDefault(f => f.Vm.Id == id).Vm;
@@ -100,7 +108,7 @@ internal sealed class FenceManager : IDisposable
     {
         var area = PrimaryWorkArea();
         var occupied = _fences.Select(f => new Bounds(f.Window.Left, f.Window.Top, f.Window.ActualWidth, f.Window.ActualHeight)).ToList();
-        var spot = LayoutMath.FindFreeSpot(area, 340, 240, occupied);
+        var spot = LayoutMath.FindFreeSpot(area, 340, 240, occupied, Math.Max(Config.Settings.FenceGap, 1));
         var config = new FenceConfig
         {
             X = spot.X,
@@ -165,6 +173,7 @@ internal sealed class FenceManager : IDisposable
     {
         var vm = new FenceViewModel(config);
         vm.Changed += (_, _) => RequestSave();
+        vm.PathsRemoved += (_, paths) => _sortExclusions.UnionWith(paths);
         var window = new FenceWindow(vm, this);
         _fences.Add((vm, window));
         if (_fencesVisible)
@@ -226,6 +235,63 @@ internal sealed class FenceManager : IDisposable
             }
         }
     }
+
+    /// <summary>
+    /// Keeps fences visible through "Show desktop": lifted above the desktop while it is in front,
+    /// back at the bottom once an application is active, and restored if the shell hid them anyway.
+    /// Runs on every foreground change and on a timer, so a missed or early event can't leave them hidden.
+    /// </summary>
+    private void UpdateDesktopLayer()
+    {
+        if (!_fencesVisible || _fences.Count == 0)
+        {
+            return;
+        }
+        var windows = _fences.Select(f => (Window)f.Window).ToList();
+        DesktopPinning.RestoreIfLost(windows);
+
+        if (_showDesktop.Evaluate() is not { } state)
+        {
+            return;
+        }
+        if (state.Shown)
+        {
+            if (!DesktopPinning.IsRaised || DesktopPinning.AnyBelow(windows, state.Desktop))
+            {
+                DesktopPinning.SetRaised(windows, true);
+            }
+        }
+        else if (DesktopPinning.IsRaised)
+        {
+            DesktopPinning.SetRaised(windows, false);
+        }
+    }
+
+    /// <summary>Screen rectangles (in pixels) of the other visible fences, for magnetic snapping.</summary>
+    public List<Bounds> OtherFenceRects(FenceWindow except)
+    {
+        var result = new List<Bounds>();
+        foreach (var (_, window) in _fences)
+        {
+            if (window == except || !window.IsVisible)
+            {
+                continue;
+            }
+            var hwnd = new System.Windows.Interop.WindowInteropHelper(window).Handle;
+            if (hwnd != IntPtr.Zero && NativeMethods.GetWindowRect(hwnd, out var r))
+            {
+                result.Add(new Bounds(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top));
+            }
+        }
+        return result;
+    }
+
+    /// <summary>Work areas of all monitors in pixels, primary first.</summary>
+    public static List<Bounds> WorkAreasInPixels() =>
+        System.Windows.Forms.Screen.AllScreens
+            .OrderByDescending(s => s.Primary)
+            .Select(s => new Bounds(s.WorkingArea.X, s.WorkingArea.Y, s.WorkingArea.Width, s.WorkingArea.Height))
+            .ToList();
 
     public void ShowSearch()
     {
@@ -335,12 +401,15 @@ internal sealed class FenceManager : IDisposable
             Notification?.Invoke(this, "Nie ma włączonych reguł sortowania. Dodaj je w Ustawieniach.");
             return;
         }
+        // An explicit "sort now" overrides earlier exclusions.
+        _sortExclusions.Clear();
         SortPaths(ScanWatchedFolders(Config.Settings).Select(c => c.FullPath).ToList(), automatic: false);
     }
 
     public void UndoSort()
     {
         var report = _organizer.UndoLast();
+        _sortExclusions.UnionWith(report.Moved.Select(m => m.DestinationPath));
         RetargetReferences(report.Moved.Select(m => (m.SourcePath, m.DestinationPath)));
         ReloadFolderFences();
         var message = $"Cofnięto: {report.Moved.Count} el.";
@@ -353,7 +422,11 @@ internal sealed class FenceManager : IDisposable
 
     private void SortPaths(IReadOnlyList<string> paths, bool automatic)
     {
-        var candidates = paths.Select(FileCandidate.FromPath).OfType<FileCandidate>().ToList();
+        var candidates = paths
+            .Where(p => !automatic || !_sortExclusions.Contains(p))
+            .Select(FileCandidate.FromPath)
+            .OfType<FileCandidate>()
+            .ToList();
         var plan = SortPlanner.Plan(candidates, new RuleEngine(Config.Rules), Config);
         if (plan.Count == 0)
         {
@@ -536,6 +609,7 @@ internal sealed class FenceManager : IDisposable
     {
         SaveNow();
         _missingCheck.Stop();
+        _desktopGuard.Stop();
         _autoSort.Dispose();
         _doubleClick.Dispose();
         _showDesktop.Dispose();

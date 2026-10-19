@@ -177,3 +177,71 @@ public class ParsingTests
         Assert.Equal(valid, ColorParser.IsValidHex(value));
     }
 }
+
+public class SnappingTests
+{
+    private static readonly Bounds Screen = new(0, 0, 1920, 1040);
+    private static readonly SnapOptions Options = new(Gap: 8, Threshold: 12, Grid: 10, SnapToNeighbours: true);
+
+    [Fact]
+    public void Sticks_beside_a_neighbour_with_the_gap()
+    {
+        var neighbour = new Bounds(100, 100, 300, 200);
+
+        var result = LayoutMath.SnapMove(new Bounds(413, 130, 200, 150), new[] { neighbour }, new[] { Screen }, Options);
+
+        Assert.Equal(408, result.X); // 400 + gap
+    }
+
+    [Fact]
+    public void Stacks_below_a_neighbour_and_aligns_left_edges()
+    {
+        var neighbour = new Bounds(100, 100, 300, 200);
+
+        var result = LayoutMath.SnapMove(new Bounds(105, 311, 300, 150), new[] { neighbour }, new[] { Screen }, Options);
+
+        Assert.Equal(308, result.Y); // 300 + gap
+        Assert.Equal(100, result.X); // aligned with the fence above
+    }
+
+    [Fact]
+    public void Keeps_gap_from_screen_edges()
+    {
+        var result = LayoutMath.SnapMove(new Bounds(3, 1040 - 150 - 2, 200, 150), Array.Empty<Bounds>(), new[] { Screen }, Options);
+
+        Assert.Equal(8, result.X);
+        Assert.Equal(1040 - 150 - 8, result.Y);
+    }
+
+    [Fact]
+    public void Falls_back_to_grid_when_nothing_is_near()
+    {
+        var result = LayoutMath.SnapMove(new Bounds(733, 517, 200, 150), Array.Empty<Bounds>(), new[] { Screen }, Options);
+
+        Assert.Equal(new Bounds(730, 520, 200, 150), result);
+    }
+
+    [Fact]
+    public void Far_neighbours_do_not_attract()
+    {
+        var neighbour = new Bounds(100, 600, 300, 200); // far below, no vertical overlap
+
+        var result = LayoutMath.SnapMove(new Bounds(413, 100, 200, 150), new[] { neighbour }, new[] { Screen }, Options);
+
+        Assert.Equal(410, result.X); // grid, not the neighbour's edge
+    }
+
+    [Fact]
+    public void Resize_moves_only_dragged_edge_and_respects_minimum()
+    {
+        var neighbour = new Bounds(500, 100, 300, 200);
+
+        var result = LayoutMath.SnapResize(new Bounds(100, 100, 385, 200), ResizeEdges.Right, new[] { neighbour }, new[] { Screen }, Options, 140, 90);
+
+        Assert.Equal(100, result.X);
+        Assert.Equal(492, result.Right); // 500 - gap
+
+        var tiny = LayoutMath.SnapResize(new Bounds(100, 100, 150, 200), ResizeEdges.Left, Array.Empty<Bounds>(), new[] { Screen }, Options with { Grid = 0 }, 140, 90);
+        Assert.True(tiny.Width >= 140);
+    }
+}

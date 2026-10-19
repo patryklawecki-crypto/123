@@ -12,7 +12,9 @@ Program do porządkowania pulpitu w Windows 10/11, w stylu Stardock Fences, z ki
 - Przeciąganie plików z Eksploratora, między zagrodami i z zagród do innych programów. Ctrl wymusza kopiowanie, Shift przenoszenie.
 - Zwijanie do paska tytułu (dwuklik w pasek). Zwinięta zagroda rozwija się po najechaniu myszą.
 - Ręczne układanie ikon przeciąganiem albo sortowanie według nazwy, typu, daty lub rozmiaru.
-- Kolor, przezroczystość tła, rozmiar ikon (do 96 px, z ostrymi ikonami „jumbo”), blokada położenia, przyciąganie do siatki.
+- Kolor, przezroczystość tła, rozmiar ikon (do 96 px, z ostrymi ikonami „jumbo”).
+- **Kłódka** w pasku tytułu blokuje położenie, rozmiar i ustawienia zagrody (nazwę, kolor, sortowanie, folder, usunięcie). Zablokowana zagroda dalej przyjmuje pliki i daje się zwinąć.
+- **Magnetyczne przyciąganie**: zagrody ustawiają się obok siebie albo jedna pod drugą z równym odstępem i wyrównanymi krawędziami, trzymają też odstęp od krawędzi ekranu. Gdy w pobliżu nic nie ma, przyciąga siatka.
 - Dwuklik na pustym pulpicie chowa zagrody razem z ikonami pulpitu. Kolejny dwuklik je przywraca.
 - Przypięte elementy, które zniknęły z dysku, są wyszarzone. Jedną komendą usuwasz wszystkie brakujące.
 

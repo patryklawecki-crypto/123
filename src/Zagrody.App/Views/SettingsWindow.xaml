@@ -53,6 +53,12 @@
                             <TextBox Width="50" Margin="6,0" VerticalAlignment="Center" Text="{Binding GridSize, UpdateSourceTrigger=PropertyChanged}" />
                             <TextBlock Text="px" VerticalAlignment="Center" />
                         </StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <CheckBox Content="Przyciągaj zagrody do siebie i do krawędzi ekranu z odstępem" IsChecked="{Binding SnapToFences}" VerticalAlignment="Center" />
+                            <TextBox Width="50" Margin="6,0" VerticalAlignment="Center" Text="{Binding FenceGap, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBlock Text="px" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Hint}" Text="Zagrody ustawiają się obok siebie lub jedna pod drugą z wyrównanymi krawędziami. Gdy w pobliżu nic nie ma, przyciąga siatka." />
                         <CheckBox Content="Podglądaj zwinięte zagrody po najechaniu myszą" IsChecked="{Binding PeekRolledUpOnHover}" />
                         <CheckBox Content="Dwuklik na pustym pulpicie chowa zagrody i ikony pulpitu" IsChecked="{Binding DoubleClickDesktopToHide}" />
                         <TextBlock Style="{StaticResource Hint}" Text="Kolejny dwuklik pokazuje je z powrotem." />
